@@ -1,6 +1,9 @@
 package ledger
 
-import "errors"
+import (
+	"errors"
+	"math"
+)
 
 type Status int
 
@@ -55,6 +58,23 @@ func (l *Ledger) Escrow(id int64) (Escrow, bool) {
 }
 
 func (l *Ledger) Release(caller, escrowID int64) error {
-	// Implement this function.
-	return ErrNotFound
+	escrow, ok := l.escrows[escrowID]
+	if !ok {
+		return ErrNotFound
+	}
+	if caller != escrow.Buyer && caller != escrow.Arbiter {
+		return ErrNotAuthorized
+	}
+	if escrow.Status != Funded {
+		return ErrBadStatus
+	}
+	sellerBal := l.balances[escrow.Seller]
+	if escrow.Amount > 0 && sellerBal > math.MaxInt64-escrow.Amount {
+		return ErrOverflow
+	}
+	l.balances[escrow.Seller] = sellerBal + escrow.Amount
+	escrow.Status = Released
+	escrow.Amount = 0
+	l.escrows[escrowID] = escrow
+	return nil
 }
